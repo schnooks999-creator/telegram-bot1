@@ -10,145 +10,129 @@ WHATSAPP = "https://wa.me/201227115782"
 CASH_NUMBER = "01024929685"
 
 offers = {
-    "60": {"text": "🎮 60 شدّة", "price": "55"},
-    "325": {"text": "🎮 325 شدّة", "price": "230"},
-    "660": {"text": "🎮 660 شدّة", "price": "450"},
-    "1800": {"text": "🎮 1800 شدّة", "price": "1150"},
-    "3850": {"text": "🎮 3850 شدّة", "price": "2250"},
-    "8100": {"text": "🎮 8100 شدّة", "price": "4300"}
+    "60": {"text": "🔥 60 شدّة", "price": "55"},
+    "325": {"text": "⭐ 325 شدّة", "price": "230"},
+    "660": {"text": "💎 660 شدّة", "price": "450"},
+    "1800": {"text": "🚀 1800 شدّة", "price": "1150"},
+    "3850": {"text": "👑 3850 شدّة", "price": "2250"},
+    "8100": {"text": "🔥🔥 8100 شدّة", "price": "4300"}
 }
 
 user_data = {}
 
-# Start
+# 🔥 القائمة الرئيسية
 @bot.message_handler(commands=['start'])
-def start(msg):
+def main_menu(msg):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("🚀 ابدأ الشحن", callback_data="start"))
+    markup.add(types.InlineKeyboardButton("🎮 شحن شدات", callback_data="shop"))
 
-    bot.send_message(
-        msg.chat.id,
-        "🔥 *مرحبًا بك في خدمة شحن شدات ببجي* 🔥\n\n"
-        "💎 خدمة سريعة وآمنة\n"
-        "🛡️ ضمان على كل عملية\n\n"
-        "👇 اضغط وابدأ",
-        parse_mode="Markdown",
-        reply_markup=markup
-    )
+    bot.send_message(msg.chat.id, "🔥 أهلاً بيك\n\nاختر من القائمة:", reply_markup=markup)
 
-# عرض الباقات
-@bot.callback_query_handler(func=lambda call: call.data == "start")
-def show(call):
+# 📦 قائمة الباقات
+@bot.callback_query_handler(func=lambda call: call.data == "shop")
+def shop_menu(call):
     markup = types.InlineKeyboardMarkup()
 
     for key, value in offers.items():
         markup.add(types.InlineKeyboardButton(
-            f"{value['text']} - {value['price']} جنيه",
-            callback_data=key
+            f"{value['text']} - {value['price']} ج",
+            callback_data=f"offer_{key}"
         ))
 
-    markup.add(types.InlineKeyboardButton("❌ إلغاء", callback_data="cancel"))
+    markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="main"))
 
     bot.edit_message_text(
-        "🎯 *اختر الباقة المناسبة:*",
+        "🎯 اختر الباقة:",
         call.message.chat.id,
         call.message.message_id,
-        parse_mode="Markdown",
         reply_markup=markup
     )
 
-# اختيار
-@bot.callback_query_handler(func=lambda call: call.data in offers)
-def choose(call):
-    user_data[call.message.chat.id] = {"offer": call.data}
+# 🎯 اختيار الباقة → قائمة إدخال البيانات
+@bot.callback_query_handler(func=lambda call: call.data.startswith("offer_"))
+def choose_offer(call):
+    offer_id = call.data.split("_")[1]
+    user_data[call.message.chat.id] = {"offer": offer_id}
 
-    bot.send_message(
-        call.message.chat.id,
-        "🎮 *الخطوة 1:*\nأرسل ID الحساب:",
-        parse_mode="Markdown"
-    )
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✍️ إدخال البيانات", callback_data="enter_data"))
+    markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="shop"))
+
+    bot.send_message(call.message.chat.id, "✅ تم اختيار الباقة", reply_markup=markup)
+
+# 🧾 إدخال البيانات
+@bot.callback_query_handler(func=lambda call: call.data == "enter_data")
+def enter_data(call):
+    bot.send_message(call.message.chat.id, "🎮 اكتب ID الحساب:")
 
 # ID
 @bot.message_handler(func=lambda m: m.chat.id in user_data and "id" not in user_data[m.chat.id])
 def get_id(msg):
-    user_data[msg.chat.id]["id"] = msg.text.strip()
+    user_data[msg.chat.id]["id"] = msg.text
+    bot.send_message(msg.chat.id, "👤 اكتب اسم الحساب:")
 
-    bot.send_message(
-        msg.chat.id,
-        "👤 *الخطوة 2:*\nأرسل اسم الحساب:",
-        parse_mode="Markdown"
-    )
-
-# الاسم
+# الاسم → قائمة المراجعة
 @bot.message_handler(func=lambda m: m.chat.id in user_data and "name" not in user_data[m.chat.id])
 def get_name(msg):
-    user_data[msg.chat.id]["name"] = msg.text.strip()
+    user_data[msg.chat.id]["name"] = msg.text
 
     data = user_data[msg.chat.id]
     offer = offers[data["offer"]]
 
-    text = f"""
-📦 *تفاصيل الطلب*
-
-━━━━━━━━━━━━━━━
-🎮 الباقة: {offer['text']}
-💰 السعر: {offer['price']} جنيه
-
-🆔 ID: {data['id']}
-👤 الاسم: {data['name']}
-━━━━━━━━━━━━━━━
-
-💳 *طريقة الدفع*
-
-📱 فودافون كاش:
-{CASH_NUMBER}
-
-💵 قم بتحويل:
-*{offer['price']} جنيه*
-
-━━━━━━━━━━━━━━━
-
-📲 *بعد التحويل*
-
-📸 التقط سكرين لعملية التحويل
-
-📩 أرسل على الواتساب:
-• سكرين التحويل  
-• رقم المحفظة  
-
-📲 رابط التواصل:
-{WHATSAPP}
-
-━━━━━━━━━━━━━━━
-
-🚀 *سيتم تنفيذ الطلب خلال دقائق*
-"""
-
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton("📲 تواصل واتساب الآن", url=WHATSAPP))
-    markup.add(types.InlineKeyboardButton("🔄 طلب جديد", callback_data="start"))
-
-    bot.send_message(msg.chat.id, text, parse_mode="Markdown", reply_markup=markup)
+    markup.add(types.InlineKeyboardButton("💳 الدفع", callback_data="payment"))
+    markup.add(types.InlineKeyboardButton("🔄 تعديل", callback_data="enter_data"))
 
     bot.send_message(
-        ADMIN_ID,
-        f"""
-📥 طلب جديد 🔥
-
-{offer['text']}
-💰 {offer['price']} جنيه
-
-ID: {data['id']}
-Name: {data['name']}
-"""
+        msg.chat.id,
+        f"📦 طلبك:\n{offer['text']} - {offer['price']} جنيه",
+        reply_markup=markup
     )
 
-    user_data.pop(msg.chat.id)
+# 💳 قائمة الدفع
+@bot.callback_query_handler(func=lambda call: call.data == "payment")
+def payment_menu(call):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("💰 فودافون كاش", callback_data="cash"))
+    markup.add(types.InlineKeyboardButton("📲 واتساب", callback_data="whatsapp"))
+    markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="shop"))
 
-# إلغاء
-@bot.callback_query_handler(func=lambda call: call.data == "cancel")
-def cancel(call):
-    user_data.pop(call.message.chat.id, None)
-    bot.send_message(call.message.chat.id, "❌ تم إلغاء العملية")
+    bot.edit_message_text(
+        "💳 اختر طريقة الدفع:",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup
+    )
+
+# 💰 الكاش (قائمة لوحدها)
+@bot.callback_query_handler(func=lambda call: call.data == "cash")
+def cash_menu(call):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📲 متابعة على واتساب", callback_data="whatsapp"))
+
+    bot.send_message(
+        call.message.chat.id,
+        f"💰 حول على الرقم:\n{CASH_NUMBER}\n\n📸 بعد التحويل خد سكرين",
+        reply_markup=markup
+    )
+
+# 📲 الواتساب (قائمة لوحدها)
+@bot.callback_query_handler(func=lambda call: call.data == "whatsapp")
+def whatsapp_menu(call):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("📲 فتح واتساب", url=WHATSAPP))
+
+    bot.send_message(
+        call.message.chat.id,
+        "📩 ابعت على الواتساب:\n"
+        "- سكرين التحويل\n"
+        "- رقم المحفظة",
+        reply_markup=markup
+    )
+
+# 🔙 رجوع للرئيسية
+@bot.callback_query_handler(func=lambda call: call.data == "main")
+def back_main(call):
+    main_menu(call.message)
 
 bot.infinity_polling()
