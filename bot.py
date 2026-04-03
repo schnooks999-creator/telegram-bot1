@@ -1,61 +1,126 @@
 import telebot
 from telebot import types
 
-TOKEN = "8628975374:AAHZQQcMea7QPY9VSmnMFPYt_5F6Kev7pKU"
+TOKEN = "8609961217:AAFCpQIoLkwGmaaBvo6iXWFo8MWRqTpNYmA"
 ADMIN_ID = 5613451219
 
-bot = telebot.TeleBot(TOKEN, threaded=True)
+bot = telebot.TeleBot(TOKEN)
 
-# عرض يظهر أول ما العميل يعمل /start
+WHATSAPP = "201227115782"
+
+offers = {
+    "60": {"text": "🎮 60 شدّة", "price": "55"},
+    "325": {"text": "🎮 325 شدّة", "price": "230"},
+    "660": {"text": "🎮 660 شدّة", "price": "450"},
+    "1800": {"text": "🎮 1800 شدّة", "price": "1150"},
+    "3850": {"text": "🎮 3850 شدّة", "price": "2250"},
+    "8100": {"text": "🎮 8100 شدّة", "price": "4300"}
+}
+
+user_data = {}
+
+# 🔥 بداية البوت
 @bot.message_handler(commands=['start'])
 def start(msg):
-    chat_id = msg.chat.id
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🚀 ابدأ الشحن", callback_data="start"))
 
-    offer_text = """⚡️ وفر في تجديد باقة فليكس
+    bot.send_message(
+        msg.chat.id,
+        "🔥 أهلاً بيك في شحن شدات ببجي 🔥\n\n"
+        "⚡ شحن فوري\n💯 مضمون 100%\n\n"
+        "👇 اضغط وابدأ",
+        reply_markup=markup
+    )
 
-📱 لو على فليكس 300  
-📶 استمتع بـ 21000 فليكس  
-
-💰 بسعر 300 جنيه فقط  
-📉 بدل 450 جنيه  
-
-⚠️ التفعيل على خطوط معينة فقط  
-📩 ابعتلنا وهنقولك في ثواني ينفع ولا لا"""
-
+# 📦 عرض الباقات
+@bot.callback_query_handler(func=lambda call: call.data == "start")
+def show_offers(call):
     markup = types.InlineKeyboardMarkup()
 
-    btn1 = types.InlineKeyboardButton("✅ موافق على العرض", callback_data="yes")
-    btn2 = types.InlineKeyboardButton("❌ مش مهتم", callback_data="no")
+    for key in offers:
+        text = f"{offers[key]['text']} - {offers[key]['price']} جنيه"
+        markup.add(types.InlineKeyboardButton(text, callback_data=key))
 
-    markup.add(btn1)
-    markup.add(btn2)
+    bot.edit_message_text(
+        "🎯 اختر الباقة المناسبة:",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup
+    )
 
-    bot.send_message(chat_id, offer_text, reply_markup=markup)
+# 🎯 اختيار الباقة
+@bot.callback_query_handler(func=lambda call: call.data in offers)
+def choose(call):
+    user_data[call.message.chat.id] = {"offer": call.data}
 
-# التعامل مع الأزرار
-@bot.callback_query_handler(func=lambda call: True)
-def callback(call):
-    chat_id = call.message.chat.id
+    bot.send_message(call.message.chat.id, "🎮 ابعت ID ببجي:")
 
-    if call.data == "yes":
-        bot.send_message(
-            chat_id,
-            "🔥 تمام اختيار ممتاز\n\n"
-            "📞 للتفعيل السريع تواصل معنا على واتساب:\n"
-            "https://wa.me/201227115782\n\n"
-            "⚡️ ابعت الرسالة دي:\n"
-            "عايز عرض 21000 فليكس\n\n"
-            "🚀 وسيتم التفعيل فورًا"
+# 🎮 استقبال ID
+@bot.message_handler(func=lambda m: m.chat.id in user_data and "id" not in user_data[m.chat.id])
+def get_id(msg):
+    user_data[msg.chat.id]["id"] = msg.text
+
+    bot.send_message(msg.chat.id, "👤 ابعت اسم الحساب:")
+
+# 👤 استقبال الاسم
+@bot.message_handler(func=lambda m: m.chat.id in user_data and "name" not in user_data[m.chat.id])
+def get_name(msg):
+    user_data[msg.chat.id]["name"] = msg.text
+
+    data = user_data[msg.chat.id]
+    offer = offers[data["offer"]]
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ تأكيد الطلب", callback_data="confirm"))
+    markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="start"))
+
+    bot.send_message(
+        msg.chat.id,
+        f"📦 تفاصيل الطلب:\n\n"
+        f"{offer['text']}\n"
+        f"💰 السعر: {offer['price']} جنيه\n"
+        f"🎮 ID: {data['id']}\n"
+        f"👤 الاسم: {data['name']}\n\n"
+        "👇 اضغط تأكيد لإكمال الطلب",
+        reply_markup=markup
+    )
+
+# ✅ تأكيد الطلب
+@bot.callback_query_handler(func=lambda call: call.data == "confirm")
+def confirm(call):
+    data = user_data.get(call.message.chat.id)
+    offer = offers[data["offer"]]
+
+    # 📩 ارسال الطلب ليك
+    bot.send_message(
+        ADMIN_ID,
+        f"📩 طلب جديد 🔥\n\n"
+        f"{offer['text']}\n"
+        f"💰 {offer['price']} جنيه\n"
+        f"🎮 ID: {data['id']}\n"
+        f"👤 الاسم: {data['name']}"
+    )
+
+    # 📲 رسالة واتساب جاهزة
+    text = f"عايز اشحن {offer['text']} - ID:{data['id']} - الاسم:{data['name']}"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton(
+            "📲 تواصل واتساب",
+            url=f"https://wa.me/{WHATSAPP}?text={text}"
         )
+    )
 
-    elif call.data == "no":
-        bot.send_message(
-            chat_id,
-            "🙏 تمام\n"
-            "لو حبيت تعرف أحدث العروض ابعتلنا في أي وقت 💙"
-        )
+    bot.send_message(
+        call.message.chat.id,
+        f"💰 طريقة الدفع:\n\n"
+        f"📲 فودافون كاش / أورنج كاش:\n01227115782\n\n"
+        f"💵 حول {offer['price']} جنيه\n\n"
+        "📸 بعد التحويل:\n"
+        "ابعت سكرين على واتساب بنفس الرقم 👇",
+        reply_markup=markup
+    )
 
-    bot.answer_callback_query(call.id)
-
-# تشغيل البوت
-bot.infinity_polling(none_stop=True, interval=0)
+bot.infinity_polling()
