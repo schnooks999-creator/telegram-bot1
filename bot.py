@@ -3,11 +3,11 @@ from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 
-# 🔐 التوكن
+# 🔐 التوكن (حط التوكن الجديد هنا)
 TOKEN = "7966652318:AAHyN7iJw3HYX-eeTKJ2zqMZMeZQKmnj_0Y"
 
-# 🧑‍💼 الايدي
-ADMIN_ID = "5613451219"
+# 🧑‍💼 الايدي بتاعك
+ADMIN_ID = 5613451219
 
 # 📱 رقم واتساب
 WHATSAPP_NUMBER = "201227115782"
@@ -21,6 +21,7 @@ packages = {
     "4": "📶 70 جيجا | 1500 دقيقة | 600 جنيه",
 }
 
+# 💾 حفظ الطلبات
 def save_order(data):
     try:
         with open("orders.json", "r") as file:
@@ -33,7 +34,7 @@ def save_order(data):
     with open("orders.json", "w") as file:
         json.dump(orders, file, indent=4)
 
-# 🚀 بداية
+# 🚀 /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton(packages["1"], callback_data="1")],
@@ -44,7 +45,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text(
         "🔥 احجز باقتك الآن 🔥\n\n"
-        "📌 التفعيل يوم 16\n\n"
+        "📅 التفعيل يوم 16\n"
         "⏳ المدة 28 يوم\n\n"
         "اختار الباقة 👇",
         reply_markup=InlineKeyboardMarkup(keyboard)
@@ -66,6 +67,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.message.from_user.id
     text = update.message.text
 
+    if user_id not in user_data_store:
+        user_data_store[user_id] = {}
+
     if context.user_data.get("step") == "name":
         user_data_store[user_id]["name"] = text
         await update.message.reply_text("📱 اكتب رقمك")
@@ -77,9 +81,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         data = user_data_store[user_id]
 
         order = {
-            "name": data["name"],
-            "phone": data["phone"],
-            "package": data["package"],
+            "name": data.get("name", ""),
+            "phone": data.get("phone", ""),
+            "package": data.get("package", ""),
             "status": "جديد",
             "user_id": str(user_id),
             "date": str(datetime.now())
@@ -87,43 +91,37 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         save_order(order)
 
-        # 📩 إرسال الطلب ليك
-        if ADMIN_ID != "ID":
+        # إرسال للأدمن
+        try:
             await context.bot.send_message(
-                chat_id=int(ADMIN_ID),
+                chat_id=ADMIN_ID,
                 text=f"""📥 طلب جديد
 
 👤 {data['name']}
-
 📱 {data['phone']}
-
 {data['package']}"""
             )
+        except:
+            pass
 
-        # 🔗 أزرار
+        # أزرار
         whatsapp_url = f"https://wa.me/{WHATSAPP_NUMBER}"
         keyboard = [
             [InlineKeyboardButton("📩 تواصل واتساب", url=whatsapp_url)],
             [InlineKeyboardButton("✔️ تم الدفع", callback_data="paid")]
         ]
 
-        # 💬 رسالة العميل
         await update.message.reply_text(
             "✅ تم تسجيل طلبك بنجاح\n\n"
-            "⏳ احجز مكانك قبل اكتمال العدد\n\n"
-            "💵 حول الكاش على الرقم ده\n"
-            "01024929685\n\n"
-            "📱 ابعت على واتساب\n"
-            "📸 صورة التحويل والرقم اللي تم التحويل منه\n\n"
-            "\n"
-            "📋 وابعت كل التفاصيل على واتساب لتأكيد الطلب\n\n"
-            "✔️ بعد التحويل اضغط تم الدفع",
+            "💵 حول الكاش على الرقم:\n01024929685\n\n"
+            "📸 ابعت صورة التحويل على واتساب\n\n"
+            "✔️ وبعدها اضغط تم الدفع",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
         context.user_data.clear()
 
-# 💰 العميل ضغط تم الدفع
+# 💰 تم الدفع
 async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -134,20 +132,21 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("✅ تأكيد الدفع", callback_data=f"confirm_{user.id}")]
     ]
 
-    if ADMIN_ID != "ID":
+    try:
         await context.bot.send_message(
-            chat_id=int(ADMIN_ID),
-            text=f"""💰 عميل طلب تأكيد الدفع
+            chat_id=ADMIN_ID,
+            text=f"""💰 طلب تأكيد دفع
 
 👤 {user.first_name}
-
 🆔 {user.id}""",
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
+    except:
+        pass
 
-    await query.message.reply_text("⏳ تم إرسال طلبك وجاري المراجعة")
+    await query.message.reply_text("⏳ تم إرسال طلبك للمراجعة")
 
-# 🔒 تأكيد الأدمن
+# 🔒 تأكيد الدفع
 async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -160,41 +159,29 @@ async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except:
         orders = []
 
-    user_order = None
-
     for order in orders:
         if order.get("user_id") == user_id:
             order["status"] = "مدفوع"
-            user_order = order
 
     with open("orders.json", "w") as file:
         json.dump(orders, file, indent=4)
 
-    await query.message.reply_text("✅ تم تأكيد الدفع وتحديث الحالة")
+    await query.message.reply_text("✅ تم تأكيد الدفع")
 
-    # 📲 رسالة العميل (التعديل الجديد)
-    if user_order:
-        await context.bot.send_message(
-            chat_id=int(user_id),
-            text=f"""🎉 تم تأكيد الدفع بنجاح
+    await context.bot.send_message(
+        chat_id=int(user_id),
+        text="🎉 تم تأكيد الدفع بنجاح\n\n📅 التفعيل يوم 16\n⏳ المدة 28 يوم\n🙏 شكراً ليك"
+    )
 
-{user_order['package']}
+# ▶️ تشغيل البوت
+if __name__ == "__main__":
+    app = ApplicationBuilder().token(TOKEN).build()
 
-📅 موعد التفعيل يوم 16
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CallbackQueryHandler(choose_package, pattern="^[1-4]$"))
+    app.add_handler(CallbackQueryHandler(handle_payment, pattern="paid"))
+    app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-⏱️ المدة 28 يوم
-
-🙏 شكراً ليك وثقتك بينا"""
-        )
-
-# ⚙️ تشغيل البوت
-app = ApplicationBuilder().token(TOKEN).build()
-
-app.add_handler(CommandHandler("start", start))
-app.add_handler(CallbackQueryHandler(choose_package, pattern="^[1-4]$"))
-app.add_handler(CallbackQueryHandler(handle_payment, pattern="paid"))
-app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_"))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-
-print("🚀 البوت شغال...")
-app.run_polling()
+    print("🚀 البوت شغال...")
+    app.run_polling()
