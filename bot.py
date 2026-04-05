@@ -1,187 +1,126 @@
-import json
-from datetime import datetime
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+import telebot
+from telebot import types
 
-# 🔐 التوكن (حط التوكن الجديد هنا)
-TOKEN = "7966652318:AAHyN7iJw3HYX-eeTKJ2zqMZMeZQKmnj_0Y"
-
-# 🧑‍💼 الايدي بتاعك
+TOKEN = "8609961217:AAFCpQIoLkwGmaaBvo6iXWFo8MWRqTpNYmA"
 ADMIN_ID = 5613451219
 
-# 📱 رقم واتساب
-WHATSAPP_NUMBER = "201227115782"
+bot = telebot.TeleBot(TOKEN)
 
-user_data_store = {}
+WHATSAPP = "201227115782"
 
-packages = {
-    "1": "📶 40 جيجا | 1500 دقيقة | 400 جنيه",
-    "2": "📶 50 جيجا | 1500 دقيقة | 470 جنيه",
-    "3": "📶 60 جيجا | 1500 دقيقة | 540 جنيه",
-    "4": "📶 70 جيجا | 1500 دقيقة | 600 جنيه",
+offers = {
+    "60": {"text": "🎮 60 شدّة", "price": "55"},
+    "325": {"text": "🎮 325 شدّة", "price": "230"},
+    "660": {"text": "🎮 660 شدّة", "price": "450"},
+    "1800": {"text": "🎮 1800 شدّة", "price": "1150"},
+    "3850": {"text": "🎮 3850 شدّة", "price": "2250"},
+    "8100": {"text": "🎮 8100 شدّة", "price": "4300"}
 }
 
-# 💾 حفظ الطلبات
-def save_order(data):
-    try:
-        with open("orders.json", "r") as file:
-            orders = json.load(file)
-    except:
-        orders = []
+user_data = {}
 
-    orders.append(data)
+# 🔥 بداية البوت
+@bot.message_handler(commands=['start'])
+def start(msg):
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("🚀 ابدأ الشحن", callback_data="start"))
 
-    with open("orders.json", "w") as file:
-        json.dump(orders, file, indent=4)
+    bot.send_message(
+        msg.chat.id,
+        "🔥 أهلاً بيك في شحن شدات ببجي 🔥\n\n"
+        "⚡ شحن فوري\n💯 مضمون 100%\n\n"
+        "👇 اضغط وابدأ",
+        reply_markup=markup
+    )
 
-# 🚀 /start
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton(packages["1"], callback_data="1")],
-        [InlineKeyboardButton(packages["2"], callback_data="2")],
-        [InlineKeyboardButton(packages["3"], callback_data="3")],
-        [InlineKeyboardButton(packages["4"], callback_data="4")],
-    ]
+# 📦 عرض الباقات
+@bot.callback_query_handler(func=lambda call: call.data == "start")
+def show_offers(call):
+    markup = types.InlineKeyboardMarkup()
 
-    await update.message.reply_text(
-        "🔥 احجز باقتك الآن 🔥\n\n"
-        "📅 التفعيل يوم 16\n"
-        "⏳ المدة 28 يوم\n\n"
-        "اختار الباقة 👇",
-        reply_markup=InlineKeyboardMarkup(keyboard)
+    for key in offers:
+        text = f"{offers[key]['text']} - {offers[key]['price']} جنيه"
+        markup.add(types.InlineKeyboardButton(text, callback_data=key))
+
+    bot.edit_message_text(
+        "🎯 اختر الباقة المناسبة:",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=markup
     )
 
 # 🎯 اختيار الباقة
-async def choose_package(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+@bot.callback_query_handler(func=lambda call: call.data in offers)
+def choose(call):
+    user_data[call.message.chat.id] = {"offer": call.data}
 
-    user_id = query.from_user.id
-    user_data_store[user_id] = {"package": packages[query.data]}
+    bot.send_message(call.message.chat.id, "🎮 ابعت ID ببجي:")
 
-    await query.message.reply_text("👤 اكتب اسمك")
-    context.user_data["step"] = "name"
+# 🎮 استقبال ID
+@bot.message_handler(func=lambda m: m.chat.id in user_data and "id" not in user_data[m.chat.id])
+def get_id(msg):
+    user_data[msg.chat.id]["id"] = msg.text
 
-# ✍️ إدخال البيانات
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.message.from_user.id
-    text = update.message.text
+    bot.send_message(msg.chat.id, "👤 ابعت اسم الحساب:")
 
-    if user_id not in user_data_store:
-        user_data_store[user_id] = {}
+# 👤 استقبال الاسم
+@bot.message_handler(func=lambda m: m.chat.id in user_data and "name" not in user_data[m.chat.id])
+def get_name(msg):
+    user_data[msg.chat.id]["name"] = msg.text
 
-    if context.user_data.get("step") == "name":
-        user_data_store[user_id]["name"] = text
-        await update.message.reply_text("📱 اكتب رقمك")
-        context.user_data["step"] = "phone"
+    data = user_data[msg.chat.id]
+    offer = offers[data["offer"]]
 
-    elif context.user_data.get("step") == "phone":
-        user_data_store[user_id]["phone"] = text
+    markup = types.InlineKeyboardMarkup()
+    markup.add(types.InlineKeyboardButton("✅ تأكيد الطلب", callback_data="confirm"))
+    markup.add(types.InlineKeyboardButton("🔙 رجوع", callback_data="start"))
 
-        data = user_data_store[user_id]
-
-        order = {
-            "name": data.get("name", ""),
-            "phone": data.get("phone", ""),
-            "package": data.get("package", ""),
-            "status": "جديد",
-            "user_id": str(user_id),
-            "date": str(datetime.now())
-        }
-
-        save_order(order)
-
-        # إرسال للأدمن
-        try:
-            await context.bot.send_message(
-                chat_id=ADMIN_ID,
-                text=f"""📥 طلب جديد
-
-👤 {data['name']}
-📱 {data['phone']}
-{data['package']}"""
-            )
-        except:
-            pass
-
-        # أزرار
-        whatsapp_url = f"https://wa.me/{WHATSAPP_NUMBER}"
-        keyboard = [
-            [InlineKeyboardButton("📩 تواصل واتساب", url=whatsapp_url)],
-            [InlineKeyboardButton("✔️ تم الدفع", callback_data="paid")]
-        ]
-
-        await update.message.reply_text(
-            "✅ تم تسجيل طلبك بنجاح\n\n"
-            "💵 حول الكاش على الرقم:\n01024929685\n\n"
-            "📸 ابعت صورة التحويل على واتساب\n\n"
-            "✔️ وبعدها اضغط تم الدفع",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-
-        context.user_data.clear()
-
-# 💰 تم الدفع
-async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    user = query.from_user
-
-    keyboard = [
-        [InlineKeyboardButton("✅ تأكيد الدفع", callback_data=f"confirm_{user.id}")]
-    ]
-
-    try:
-        await context.bot.send_message(
-            chat_id=ADMIN_ID,
-            text=f"""💰 طلب تأكيد دفع
-
-👤 {user.first_name}
-🆔 {user.id}""",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-    except:
-        pass
-
-    await query.message.reply_text("⏳ تم إرسال طلبك للمراجعة")
-
-# 🔒 تأكيد الدفع
-async def confirm_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    user_id = query.data.split("_")[1]
-
-    try:
-        with open("orders.json", "r") as file:
-            orders = json.load(file)
-    except:
-        orders = []
-
-    for order in orders:
-        if order.get("user_id") == user_id:
-            order["status"] = "مدفوع"
-
-    with open("orders.json", "w") as file:
-        json.dump(orders, file, indent=4)
-
-    await query.message.reply_text("✅ تم تأكيد الدفع")
-
-    await context.bot.send_message(
-        chat_id=int(user_id),
-        text="🎉 تم تأكيد الدفع بنجاح\n\n📅 التفعيل يوم 16\n⏳ المدة 28 يوم\n🙏 شكراً ليك"
+    bot.send_message(
+        msg.chat.id,
+        f"📦 تفاصيل الطلب:\n\n"
+        f"{offer['text']}\n"
+        f"💰 السعر: {offer['price']} جنيه\n"
+        f"🎮 ID: {data['id']}\n"
+        f"👤 الاسم: {data['name']}\n\n"
+        "👇 اضغط تأكيد لإكمال الطلب",
+        reply_markup=markup
     )
 
-# ▶️ تشغيل البوت
-if __name__ == "__main__":
-    app = ApplicationBuilder().token(TOKEN).build()
+# ✅ تأكيد الطلب
+@bot.callback_query_handler(func=lambda call: call.data == "confirm")
+def confirm(call):
+    data = user_data.get(call.message.chat.id)
+    offer = offers[data["offer"]]
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CallbackQueryHandler(choose_package, pattern="^[1-4]$"))
-    app.add_handler(CallbackQueryHandler(handle_payment, pattern="paid"))
-    app.add_handler(CallbackQueryHandler(confirm_payment, pattern="^confirm_"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    # 📩 ارسال الطلب ليك
+    bot.send_message(
+        ADMIN_ID,
+        f"📩 طلب جديد 🔥\n\n"
+        f"{offer['text']}\n"
+        f"💰 {offer['price']} جنيه\n"
+        f"🎮 ID: {data['id']}\n"
+        f"👤 الاسم: {data['name']}"
+    )
 
-    print("🚀 البوت شغال...")
-    app.run_polling()
+    # 📲 رسالة واتساب جاهزة
+    text = f"عايز اشحن {offer['text']} - ID:{data['id']} - الاسم:{data['name']}"
+
+    markup = types.InlineKeyboardMarkup()
+    markup.add(
+        types.InlineKeyboardButton(
+            "📲 تواصل واتساب",
+            url=f"https://wa.me/{WHATSAPP}?text={text}"
+        )
+    )
+
+    bot.send_message(
+        call.message.chat.id,
+        f"💰 طريقة الدفع:\n\n"
+        f"📲 فودافون كاش / أورنج كاش:\n01227115782\n\n"
+        f"💵 حول {offer['price']} جنيه\n\n"
+        "📸 بعد التحويل:\n"
+        "ابعت سكرين على واتساب بنفس الرقم 👇",
+        reply_markup=markup
+    )
+
+bot.infinity_polling()
